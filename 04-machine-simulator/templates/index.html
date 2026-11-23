@@ -1,0 +1,305 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoBottle Simulator</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #eef7f0;
+            margin: 0;
+            padding: 30px 15px;
+            color: #26352b;
+        }
+
+        .container {
+            max-width: 750px;
+            margin: auto;
+            padding: 30px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+
+        h1 {
+            color: #16834a;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: #64756a;
+            margin-bottom: 25px;
+        }
+
+        .button {
+            border: none;
+            border-radius: 8px;
+            padding: 13px 20px;
+            margin: 7px;
+            background: #16834a;
+            color: white;
+            font-size: 15px;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background: #106638;
+        }
+
+        .button.secondary {
+            background: #526b5b;
+        }
+
+        .button.danger {
+            background: #c0392b;
+        }
+
+        .media-area {
+            margin: 25px auto 15px;
+            max-width: 500px;
+            min-height: 100px;
+            background: #f4f7f4;
+            border: 2px dashed #b6c9ba;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        video, #preview {
+            display: none;
+            width: 100%;
+            max-height: 350px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        #status {
+            margin-top: 20px;
+            padding: 13px;
+            background: #e7f5eb;
+            border-radius: 8px;
+            color: #176b3c;
+        }
+
+        #gambar {
+            display: none;
+        }
+
+        .upload-label {
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>EcoBottle</h1>
+    <h2>Simulator Mesin Penukaran Botol</h2>
+
+    <p class="subtitle">
+        Sistem pemindaian botol berbasis Machine Learning
+    </p>
+
+    <h3>Pilih Metode Pemindaian</h3>
+
+    <button class="button" type="button" onclick="bukaKamera()">
+        Gunakan Kamera
+    </button>
+
+    <label for="gambar" class="button secondary upload-label">
+        Upload Gambar Botol
+    </label>
+
+    <input
+        type="file"
+        id="gambar"
+        accept="image/jpeg,image/png,image/webp"
+    >
+
+    <div class="media-area">
+
+        <video id="kamera" autoplay playsinline muted></video>
+
+        <img id="preview" alt="Preview botol">
+
+        <p id="placeholder">
+            Kamera atau gambar botol akan tampil di sini.
+        </p>
+
+    </div>
+
+    <div>
+        <button
+            class="button"
+            id="ambilFoto"
+            type="button"
+            onclick="ambilGambar()"
+            style="display:none;">
+            Ambil Foto
+        </button>
+
+        <button
+            class="button danger"
+            id="tutupKamera"
+            type="button"
+            onclick="hentikanKamera()"
+            style="display:none;">
+            Tutup Kamera
+        </button>
+    </div>
+
+    <p id="status">Mesin siap digunakan.</p>
+
+</div>
+
+<script>
+    const video = document.getElementById("kamera");
+    const preview = document.getElementById("preview");
+    const inputGambar = document.getElementById("gambar");
+    const statusMesin = document.getElementById("status");
+    const placeholder = document.getElementById("placeholder");
+
+    const tombolFoto = document.getElementById("ambilFoto");
+    const tombolTutup = document.getElementById("tutupKamera");
+
+    let streamKamera = null;
+    let gambarTerpilih = null;
+
+    // Membuka kamera laptop
+    async function bukaKamera() {
+
+        try {
+            hentikanKamera();
+
+            if (!navigator.mediaDevices ||
+                !navigator.mediaDevices.getUserMedia) {
+
+                throw new Error(
+                    "Akses kamera tidak tersedia. Gunakan localhost dan browser terbaru."
+                );
+            }
+
+            statusMesin.textContent = "Meminta izin kamera...";
+
+            streamKamera =
+                await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: false
+                });
+
+            video.srcObject = streamKamera;
+
+            await video.play();
+
+            video.style.display = "block";
+            preview.style.display = "none";
+            placeholder.style.display = "none";
+
+            tombolFoto.style.display = "inline-block";
+            tombolTutup.style.display = "inline-block";
+
+            statusMesin.textContent =
+                "Kamera aktif. Arahkan botol ke kamera.";
+
+        } catch (error) {
+
+            console.error("Kesalahan kamera:", error);
+
+            let pesan = error.message;
+
+            if (error.name === "NotAllowedError") {
+                pesan = "Izin kamera ditolak. Izinkan akses kamera di browser.";
+            } else if (error.name === "NotFoundError") {
+                pesan = "Kamera tidak ditemukan pada perangkat.";
+            } else if (error.name === "NotReadableError") {
+                pesan = "Kamera sedang digunakan aplikasi lain.";
+            } else if (error.name === "SecurityError") {
+                pesan = "Akses kamera diblokir oleh pengaturan keamanan browser.";
+            }
+
+            statusMesin.textContent = pesan;
+        }
+    }
+
+    // Mengambil foto dari kamera
+    function ambilGambar() {
+
+        if (!streamKamera || video.readyState < 2) {
+            statusMesin.textContent = "Kamera belum siap.";
+            return;
+        }
+
+        const canvas = document.createElement("canvas");
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const context = canvas.getContext("2d");
+        context.drawImage(video, 0, 0);
+
+        gambarTerpilih = canvas.toDataURL("image/jpeg");
+
+        preview.src = gambarTerpilih;
+        preview.style.display = "block";
+
+        hentikanKamera();
+
+        statusMesin.textContent =
+            "Foto botol berhasil diambil. Siap untuk proses deteksi ML.";
+    }
+
+    // Upload gambar
+    inputGambar.addEventListener("change", function () {
+
+        const file = this.files[0];
+
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+            statusMesin.textContent = "File harus berupa gambar.";
+            return;
+        }
+
+        hentikanKamera();
+
+        if (gambarTerpilih && gambarTerpilih.startsWith("blob:")) {
+            URL.revokeObjectURL(gambarTerpilih);
+        }
+
+        gambarTerpilih = URL.createObjectURL(file);
+
+        preview.src = gambarTerpilih;
+        preview.style.display = "block";
+        placeholder.style.display = "none";
+
+        statusMesin.textContent =
+            "Gambar berhasil dipilih. Siap untuk proses deteksi ML.";
+    });
+
+    // Menutup kamera
+    function hentikanKamera() {
+
+        if (streamKamera) {
+            streamKamera.getTracks().forEach(track => track.stop());
+            streamKamera = null;
+        }
+
+        video.srcObject = null;
+        video.style.display = "none";
+
+        tombolFoto.style.display = "none";
+        tombolTutup.style.display = "none";
+    }
+</script>
+
+</body>
+</html>
